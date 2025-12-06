@@ -1,3 +1,4 @@
+import os
 import random
 from datasets import load_dataset
 import torch
@@ -141,7 +142,8 @@ mwe_corpus = general_journalistic_corpus
 print("Initializing Processor and Model...")
 # Ensure you have 'de_core_news_lg' installed
 processor = MWEProcessor(model_name='bert-base-german-cased')
-model = BilingualMWEBert(model_name='bert-base-german-cased', tokenizer=processor.tokenizer)
+model = BilingualMWEBert(
+    model_name='bert-base-german-cased', tokenizer=processor.tokenizer)
 
 # Move model to GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -183,5 +185,19 @@ for epoch in range(epochs):
     train_one_epoch(model, dataloader, optimizer, scheduler, device)
 
 # 7. Save the Fine-Tuned Model
-model.save_pretrained("./financial_mwe_bert_output")
-print("Model saved successfully.")
+
+# 7. Save the Fine-Tuned Model (Manual Save for Custom Module)
+output_dir = "./financial_mwe_bert_output"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# Save the model weights
+torch.save(model.state_dict(), os.path.join(output_dir, "pytorch_model.bin"))
+
+# Save the configuration (needed to reload the inner BERT)
+model.config.save_pretrained(output_dir)
+
+# Save the tokenizer (crucial because we added special tokens)
+processor.tokenizer.save_pretrained(output_dir)
+
+print(f"Model, config, and tokenizer saved to {output_dir}")
