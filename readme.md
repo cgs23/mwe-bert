@@ -1,119 +1,132 @@
 # Bilingual MWE-BERT: Fine-tuning with Head-Based Masking
 
-## Overview
+## Project Overview
 
-This repository contains the implementation for the research paper: "A bilingual study of Multi-Word Expressions in Journalistic Texts: Fine-tune BERT with Head-Based Masking Technique."
+This repository contains the algorithm and implementation for the research paper: **"A bilingual study of Multi-Word Expressions in Journalistic Texts: Fine-tune BERT with Head-Based Masking Technique."**
 
-The project modifies the standard BERT architecture to better handle Financial Multi-Word Expressions (MWEs) in German. It introduces a Head-Based Masking Technique and a 4-Component Embedding Summation (Token + Intra-Phrase + Phrase + Inter-Phrase) to capture the causal and dependency relationships between distant words in financial texts.
+The study introduces a novel **Head-Based Masking Technique** and a **4-Component Embedding Architecture** ($E_{token} + P_{intra} + E_{phrase} + P_{inter}$) to improve the numerical representation of Multi-Word Expressions (MWEs) in German financial and journalistic texts.
+
+The goal is to solve the "Distributed Semantic" problem (e.g., Separable Verbs like *brach... ein*) by forcing the model to treat distant components as a single semantic unit.
+
+## Visual Results
+
+The evaluation script generates a PCA projection showing how the custom model "pulls" semantic pairs together compared to standard BERT.
+
+**Figure 1:** PCA projection of financial MWE vector pairs. The left panel shows vector proximity in Standard BERT, while the right panel shows the proposed MWE-BERT. Note the tighter clustering of causal pairs (e.g., *Zuwächsen-eingependelt*) in the proposed model.
+
+![PCA Visualization](paper_visualization.png)
 
 ## Directory Structure
 
 ```
-├── MWEProcessor.py          # Data preprocessing and Dual Masking logic
-├── MWEBertEmbeddings.py     # Custom Neural Network architecture (Model definition)
-├── main.py                  # Training loop with Differential Learning Rates
-├── evaluation.py            # Proof-of-concept metric calculation (Cosine/Euclidean)
+├── MWEProcessor.py          # Pre-processing, Chunking, Attention Masks, Dual Masking
+├── MWEBertEmbeddings.py     # Custom Neural Architecture (The 4-Component Sum)
+├── main.py                  # 2-Phase Training Loop (Freeze -> Fine-tune)
+├── evaluation.py            # Metric Calculation (Cosine/Euclidean) & Visualization
 └── README.md                # Documentation
 ```
 
-## File Descriptions & Functionality
+## Installation & Setup
 
-### MWEProcessor.py (The Pre-processing Engine)
+### Environment
+- Python 3.8+
 
-This script bridges the gap between linguistic theory (Dependency Parsing) and Neural Tensors.
-
-**Functionality:**
-- Uses spaCy (`de_core_news_lg`) to parse German sentences and extract syntactic phrases.
-- Implements Fixed-Window Padding: Ensures every phrase block is normalized to 10 tokens.
-- Injects Boundary Tokens: Adds `[PHRASE_START]` and `[PHRASE_END]` to the vocabulary.
-
-**The Logic:** It converts raw text into three distinct tensors: `input_ids`, `intra_phrase_ids` (position inside the phrase), and `inter_phrase_ids` (position of the phrase in the sentence).
-
-**Dual Masking:** Implements the research hypothesis by masking not just random words, but Dependency Pairs (The Head and the Dependent) simultaneously.
-
-### MWEBertEmbeddings.py (The Custom Architecture)
-
-This file defines the mathematical modifications to the BERT Encoder.
-
-**Functionality:**
-- Subclasses `BertEmbeddings` to override the standard vector lookup.
-- **The Math:** Implements the formula: $E_{final} = E_{token} + P_{intra} + E_{phrase} + P_{inter}$.
-- Contains the `BilingualMWEBert` wrapper class, which swaps the default embeddings of a pre-trained `bert-base-german-cased` model with your custom structure.
-
-### main.py (The Training Loop)
-
-The entry point for fine-tuning the model.
-
-**Functionality:**
-- Loads the financial corpus.
-- Initializes the `FinancialMWEDataset`.
-- **Differential Learning Rates:** Configures the optimizer to use a high learning rate (1e-3) for the new phrase-aware layers and a low rate (5e-5) for the pre-trained BERT layers to prevent catastrophic forgetting.
-- Executes the training epochs and saves the fine-tuned model to `./financial_mwe_bert_output`.
-
-### evaluation.py (The Empirical Proof)
-
-Used to verify the research hypothesis.
-
-**Functionality:**
-- Loads both the Standard BERT (Baseline) and your Fine-Tuned MWE-BERT.
-- Extracts vectors for specific financial word pairs (e.g., "Zuwächsen" and "eingependelt").
-- Calculates Cosine Similarity (semantic alignment) and Euclidean Distance (vector clustering).
-- Outputs a comparison table showing the percentage improvement in vector proximity.
-
-## Setup & Installation
-
-### Prerequisites
-
-You need Python 3.8+ and the following libraries:
+### Dependencies
 
 ```bash
-pip install torch transformers spacy scipy numpy
+pip install torch transformers spacy datasets scipy numpy matplotlib scikit-learn
 ```
 
-### Download the Language Model
+### Language Model
 
-You must download the large German model for spaCy to ensure accurate dependency parsing:
+Download the large German model for spaCy (critical for dependency parsing):
 
 ```bash
 python -m spacy download de_core_news_lg
 ```
 
-## How to Execute the Flow
+## How to Run the Experiment
 
-### Step 1: Prepare Your Data
+### 1. Training (main.py)
 
-Open `main.py` and locate the `financial_corpus` list.
-- For testing, you can use the dummy sentences provided.
-- For the actual experiment, load your Europarl or ECB corpus text file into this list.
+The training script automatically downloads the Europarl (DE-EL) dataset and filters for complex journalistic sentences.
 
-### Step 2: Run the Training
+It implements a **Two-Phase Training Strategy** to prevent Catastrophic Forgetting:
 
-Execute the main script to start fine-tuning. This will take time depending on your GPU and corpus size.
+- **Phase 1 (Epoch 1):** The Base BERT model is **FROZEN**. Only the new Phrase Embeddings and CLS head are trained. This aligns the new architecture without destroying pre-trained knowledge.
+- **Phase 2 (Epoch 2+):** The Base BERT is **UNFROZEN**. The entire model is fine-tuned using differential learning rates (Lower LR for BERT, Higher LR for Phrase Embeddings).
 
 ```bash
 python main.py
 ```
 
-**Output:** You will see epoch loss logs.
+**Output:** Saves the model weights, config, and tokenizer to `./financial_mwe_bert_output`.
 
-**Result:** A new directory `./financial_mwe_bert_output` will be created containing your saved model weights (`pytorch_model.bin`).
+### 2. Evaluation (evaluation.py)
 
-### Step 3: Run the Evaluation
+This script loads the saved custom model and compares it against a standard `bert-base-german-cased`. It calculates:
 
-Once training is complete, run the evaluation script to prove your hypothesis.
+- **Cosine Similarity Improvement:** (Higher is better)
+- **Euclidean Distance Reduction:** (Lower is better)
+
+It tests against a curated list of Financial Causality, Separable Verbs, and Fixed Expressions.
 
 ```bash
 python evaluation.py
 ```
 
-**Configuration:** Inside `evaluation.py`, ensure `test_sentence` and the `word_pair` variable match a specific example you want to analyze (e.g., "Zuwächsen", "eingependelt").
+**Output:** Prints a metrics table to the console and generates `paper_visualization.png`.
 
-**Output:** A console table displaying the Cosine Similarity improvement.
+## Evaluation Results
 
-## Configuration (Hyperparameters)
+The evaluation script tests the model on a curated test set (defined in `evaluation.py` under the `TEST_SET` array) containing 14 MWE pairs across four categories:
 
-You can adjust specific research parameters inside the files:
+1. **Financial Causality & Events** (3 pairs)
+2. **Functional Verb Constructions** (5 pairs)
+3. **Separable Verbs** (4 pairs)
+4. **Journalistic Phrasing** (2 pairs)
 
-- **Phrase Length:** In `MWEProcessor.py`, change `max_phrase_len=10` if you want larger/smaller windows.
-- **Masking Probability:** In `MWEProcessor.py`, change `masking_prob=0.15`.
-- **Learning Rates:** In `main.py`, under the Optimizer section, adjust `1e-3` (Phrase Layers) or `5e-5` (BERT Base).
+### Results Table
+
+| MWE Pair | Cos Sim (Std) | Cos Sim (MWE) | Improvement |
+|----------|---------------|---------------|-------------|
+| Inflation - erhöhen | 0.6114 | 0.7522 | +23.04% |
+| Kurssturz - verloren | 0.5572 | 0.6790 | +21.86% |
+| Insolvenz - anmelden | 0.6467 | 0.6554 | +1.35% |
+| Verfahren - einleiten | 0.7293 | 0.6911 | -5.23% |
+| Kauf - nehmen | 0.6117 | 0.8426 | +37.75% |
+| Ausdruck - bringen | 0.6636 | 0.7368 | +11.03% |
+| Verfügung - stellte | 0.6355 | 0.7234 | +13.83% |
+| Kritik - üben | 0.6184 | 0.8511 | +37.63% |
+| brach - ein | 0.5022 | 0.6714 | +33.70% |
+| gab - bekannt | 0.6260 | 0.8088 | +29.20% |
+| fangen - an | 0.4098 | 0.9451 | +130.64% |
+| stimmt - ab | 0.4095 | 0.6958 | +69.92% |
+| Zusammenhang - steht | 0.6405 | 0.8299 | +29.58% |
+| Abschluss - bringen | 0.5972 | 0.7425 | +24.32% |
+| **AVERAGE IMPROVEMENT** | | | **+32.76%** |
+
+### Key Findings
+
+- The MWE-BERT model achieves an **average improvement of +32.76%** in cosine similarity compared to standard BERT
+- Separable verbs show the most dramatic improvements, with "fangen - an" achieving a **+130.64%** improvement
+- The model successfully captures semantic relationships in distant word pairs, addressing the "Distributed Semantic" problem
+
+## Technical Architecture Details
+
+### MWEProcessor.py
+
+- **Robust Chunking:** Identifies Noun Chunks via spaCy and treats remaining verbs/prepositions as single-token phrases to ensure 100% sentence coverage.
+- **Attention Masks:** Generates masks to ensure BERT ignores the padding tokens used to enforce the fixed phrase window (10 tokens).
+- **Dual Masking:** Implements the core hypothesis by masking the Governor and Dependent simultaneously (e.g., masking both "Inflation" and "erhöhen").
+
+### MWEBertEmbeddings.py
+
+- **Custom Forward Pass:** Overrides standard BERT embeddings.
+- **Initialization:** Uses `nn.init.normal_` with a low standard deviation (0.01) for new embeddings to reduce initialization noise.
+- **Safe Resizing:** Includes logic to resize the embedding matrix dynamically to accommodate special tokens (`[PHRASE_START]`, `[PHRASE_END]`).
+
+### main.py
+
+- **Manual Saving:** Uses `torch.save(model.state_dict())` because the custom `BilingualMWEBert` class wraps the Hugging Face model and requires manual weight serialization.
+- **Differential Optimization:** Uses AdamW with parameter groups to apply aggressive learning rates (1e-3) to new layers and conservative rates (2e-5) to pre-trained layers.

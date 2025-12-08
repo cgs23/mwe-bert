@@ -22,11 +22,18 @@ class MWEBertEmbeddings(nn.Module):
             config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
+        # Standard BERT init is std=0.02. We use 0.01 to make them subtle at start.
+        nn.init.normal_(self.intra_phrase_embeddings.weight,
+                        mean=0.0, std=0.01)
+        nn.init.normal_(self.inter_phrase_embeddings.weight,
+                        mean=0.0, std=0.01)
+
     def forward(self,
                 input_ids=None,
                 intra_phrase_ids=None,
                 inter_phrase_ids=None,
                 token_type_ids=None,
+                attention_mask=None,
                 position_ids=None,
                 inputs_embeds=None,
                 past_key_values_length=0):

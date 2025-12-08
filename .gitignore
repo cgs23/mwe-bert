@@ -1,0 +1,25 @@
+# Model files (too large for GitHub)
+financial_mwe_bert_output/pytorch_model.bin
+*.bin
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
