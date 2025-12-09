@@ -1,7 +1,8 @@
 # Model files (too large for GitHub)
 financial_mwe_bert_output/pytorch_model.bin
 *.bin
-
+nmt_mwe_model_output/
+financial_mwe_bert_output
 # Python cache
 __pycache__/
 *.pyc

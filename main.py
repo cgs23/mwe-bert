@@ -167,9 +167,9 @@ if __name__ == "__main__":
     dataset = FinancialMWEDataset(financial_corpus, processor)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
-    # --- STEP C: TRAINING PHASES (The Fix for Forgetting) ---
+    # --- STEP C: TRAINING PHASES ---
     print("\n[3/5] Configuring Training Strategy...")
-    epochs = 3
+    epochs = 5
 
     # PHASE 1: FREEZE BASE BERT (Epoch 0)
     # We only train the NEW Phrase Embeddings and the Head.

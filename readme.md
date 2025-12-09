@@ -6,7 +6,7 @@ This repository contains the algorithm and implementation for the research paper
 
 The study introduces a novel **Head-Based Masking Technique** and a **4-Component Embedding Architecture** ($E_{token} + P_{intra} + E_{phrase} + P_{inter}$) to improve the numerical representation of Multi-Word Expressions (MWEs) in German financial and journalistic texts.
 
-The goal is to solve the "Distributed Semantic" problem (e.g., Separable Verbs like *brach... ein*) by forcing the model to treat distant components as a single semantic unit.
+The goal is to solve the "Distributed Semantic" problem (e.g., Separable Verbs like *brach... ein*) by forcing the model to treat distant components as a single semantic unit, creating tighter vector clusters for domain-specific terminology.
 
 ## Visual Results
 
@@ -21,7 +21,7 @@ The evaluation script generates a PCA projection showing how the custom model "p
 ```
 ├── MWEProcessor.py          # Pre-processing, Chunking, Attention Masks, Dual Masking
 ├── MWEBertEmbeddings.py     # Custom Neural Architecture (The 4-Component Sum)
-├── main.py                  # 2-Phase Training Loop (Freeze -> Fine-tune)
+├── main.py                  # Encoder Training (Freeze -> Fine-tune)
 ├── evaluation.py            # Metric Calculation (Cosine/Euclidean) & Visualization
 └── README.md                # Documentation
 ```
@@ -29,7 +29,8 @@ The evaluation script generates a PCA projection showing how the custom model "p
 ## Installation & Setup
 
 ### Environment
-- Python 3.8+
+
+- Python 3.8+ (Note: Python 3.11 or 3.12 recommended; 3.14 is currently unsupported)
 
 ### Dependencies
 
@@ -49,7 +50,7 @@ python -m spacy download de_core_news_lg
 
 ### 1. Training (main.py)
 
-The training script automatically downloads the Europarl (DE-EL) dataset and filters for complex journalistic sentences.
+The training script automatically downloads the Europarl (DE-EL) dataset, filters for complex journalistic sentences, and trains the custom German Encoder.
 
 It implements a **Two-Phase Training Strategy** to prevent Catastrophic Forgetting:
 
@@ -60,7 +61,7 @@ It implements a **Two-Phase Training Strategy** to prevent Catastrophic Forgetti
 python main.py
 ```
 
-**Output:** Saves the model weights, config, and tokenizer to `./financial_mwe_bert_output`.
+**Output:** Saves the encoder weights to `./financial_mwe_bert_output`.
 
 ### 2. Evaluation (evaluation.py)
 
@@ -75,42 +76,37 @@ It tests against a curated list of Financial Causality, Separable Verbs, and Fix
 python evaluation.py
 ```
 
-**Output:** Prints a metrics table to the console and generates `paper_visualization.png`.
+**Output:** Prints the results table to the console and generates `paper_visualization.png`.
 
 ## Evaluation Results
 
-The evaluation script tests the model on a curated test set (defined in `evaluation.py` under the `TEST_SET` array) containing 14 MWE pairs across four categories:
-
-1. **Financial Causality & Events** (3 pairs)
-2. **Functional Verb Constructions** (5 pairs)
-3. **Separable Verbs** (4 pairs)
-4. **Journalistic Phrasing** (2 pairs)
+The evaluation script tests the model on a curated test set (defined in `evaluation.py`) containing 14 MWE pairs across four categories: Financial Causality, Functional Verbs, Separable Verbs, and Journalistic Phrasing.
 
 ### Results Table
 
 | MWE Pair | Cos Sim (Std) | Cos Sim (MWE) | Improvement |
 |----------|---------------|---------------|-------------|
-| Inflation - erhöhen | 0.6114 | 0.7522 | +23.04% |
-| Kurssturz - verloren | 0.5572 | 0.6790 | +21.86% |
-| Insolvenz - anmelden | 0.6467 | 0.6554 | +1.35% |
-| Verfahren - einleiten | 0.7293 | 0.6911 | -5.23% |
-| Kauf - nehmen | 0.6117 | 0.8426 | +37.75% |
-| Ausdruck - bringen | 0.6636 | 0.7368 | +11.03% |
-| Verfügung - stellte | 0.6355 | 0.7234 | +13.83% |
-| Kritik - üben | 0.6184 | 0.8511 | +37.63% |
-| brach - ein | 0.5022 | 0.6714 | +33.70% |
-| gab - bekannt | 0.6260 | 0.8088 | +29.20% |
-| fangen - an | 0.4098 | 0.9451 | +130.64% |
-| stimmt - ab | 0.4095 | 0.6958 | +69.92% |
-| Zusammenhang - steht | 0.6405 | 0.8299 | +29.58% |
-| Abschluss - bringen | 0.5972 | 0.7425 | +24.32% |
-| **AVERAGE IMPROVEMENT** | | | **+32.76%** |
+| Inflation - erhöhen | 0.6114 | 0.8851 | +44.78% |
+| Kurssturz - verloren | 0.5572 | 0.8728 | +56.64% |
+| Insolvenz - anmelden | 0.6467 | 0.9804 | +51.62% |
+| Verfahren - einleiten | 0.7293 | 0.7087 | -2.83% |
+| Kauf - nehmen | 0.6117 | 0.9570 | +56.45% |
+| Ausdruck - bringen | 0.6636 | 0.8984 | +35.38% |
+| Verfügung - stellte | 0.6355 | 0.8647 | +36.07% |
+| Kritik - üben | 0.6184 | 0.9592 | +55.12% |
+| brach - ein | 0.5022 | 0.8624 | +71.73% |
+| gab - bekannt | 0.6260 | 0.9150 | +46.17% |
+| fangen - an | 0.4098 | 0.9417 | +129.81% |
+| stimmt - ab | 0.4095 | 0.9372 | +128.86% |
+| Zusammenhang - steht | 0.6405 | 0.8833 | +37.92% |
+| Abschluss - bringen | 0.5972 | 0.8251 | +38.15% |
+| **AVERAGE IMPROVEMENT** | | | **+56.13%** |
 
 ### Key Findings
 
-- The MWE-BERT model achieves an **average improvement of +32.76%** in cosine similarity compared to standard BERT
-- Separable verbs show the most dramatic improvements, with "fangen - an" achieving a **+130.64%** improvement
-- The model successfully captures semantic relationships in distant word pairs, addressing the "Distributed Semantic" problem
+- The MWE-BERT model achieves a significant **average improvement of +56.13%** in cosine similarity compared to standard BERT.
+- **Separable Verbs** show massive gains due to the Head-Based Masking technique connecting distant words. Notably, *fangen - an* improved by **+129.81%** and *stimmt - ab* by **+128.86%**.
+- **Financial Terminology** also benefited greatly, with the fixed expression *Insolvenz - anmelden* (File for Bankruptcy) improving by **+51.62%**, validating the model's domain adaptation capabilities.
 
 ## Technical Architecture Details
 
@@ -128,5 +124,5 @@ The evaluation script tests the model on a curated test set (defined in `evaluat
 
 ### main.py
 
-- **Manual Saving:** Uses `torch.save(model.state_dict())` because the custom `BilingualMWEBert` class wraps the Hugging Face model and requires manual weight serialization.
 - **Differential Optimization:** Uses AdamW with parameter groups to apply aggressive learning rates (1e-3) to new layers and conservative rates (2e-5) to pre-trained layers.
+- **Freezing Strategy:** Freezes the base BERT model during the first epoch to allow the new embedding structures to converge before fine-tuning the semantic weights.
